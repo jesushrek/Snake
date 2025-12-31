@@ -284,4 +284,3 @@ int main()
     free(grid);
     return 0;
 }
-JJ
