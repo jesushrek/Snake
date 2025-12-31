@@ -47,6 +47,7 @@ void printGrid(int* grid)
 { 
     for(int i = 0; i < HEIGHT; ++i)
     { 
+        printf("|");
         for(int j = 0; j < WIDTH; ++j)
         { 
             if(grid[i*WIDTH + j] == 1)
@@ -56,7 +57,7 @@ void printGrid(int* grid)
             else
                 printf(" "); 
         }
-        printf("\n");
+        printf("|\n");
     }
 }
 
@@ -249,7 +250,6 @@ int main()
 
     setTerminalMode(true);
 
-    bool isFirst = true;
     while(snake.isAlive)
     { 
         printf("\033[H");
@@ -274,7 +274,6 @@ int main()
         updateGrid(grid, &snake, &fruit);
         printGrid(grid);
         usleep(150 * 1000);
-        isFirst = false;
     }
 
     printf("Game over!\n");
