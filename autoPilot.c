@@ -1,0 +1,356 @@
+#include <stdio.h>
+#include <time.h>
+#include <fcntl.h>
+#include <string.h>
+#include <termios.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#define WIDTH 20
+#define HEIGHT 10
+#define SPEED 70
+
+typedef enum
+{ 
+    Up = 0,
+    Down,
+    Left,
+    Right,
+    None,
+}Direction;
+
+typedef struct 
+{ 
+    int x;
+    int y;
+}Point;
+
+/*
+
+   typedef enum 
+   { 
+   WithBody = 0,
+   WithFruit,
+   WithNone,
+   }CollisonType;
+   */
+
+
+typedef struct
+{ 
+    Point body[WIDTH * HEIGHT];
+    int size;
+    Direction d;
+    bool isAlive;
+}Sstatus;
+
+void printGrid(int* grid)
+{ 
+    for(int i = 0; i < HEIGHT; ++i)
+    { 
+        printf("|");
+        for(int j = 0; j < WIDTH; ++j)
+        { 
+            if(grid[i*WIDTH + j] == 1)
+                printf("#"); 
+            else if(grid[i*WIDTH +j] == 3)
+                printf("o");
+            else
+                printf(" "); 
+        }
+        printf("|\n");
+    }
+}
+
+/*
+   CollisonType checkColison(Sstatus* snake, Point* fruit)
+   { 
+   if(snake->body[0].x == fruit->x && snake->body[0].y == fruit->y)
+   return WithFruit;
+   for(int i = 1; i < snake->size; ++i)
+   {
+   if(snake->body[0].x == snake->body[i].x && snake->body[0].y == snake->body[i].y)
+   return WithBody;
+   }
+   return WithNone;
+   }
+   */
+
+Sstatus* updateSnake(Sstatus* snake, Point* fruit)
+{   
+    Point toMove = snake->body[0];
+
+    if(snake->d == None) return snake;
+
+    switch(snake->d)
+    { 
+        case Up:
+            toMove.y = (snake->body[0].y - 1 + HEIGHT) % HEIGHT;
+            break;
+
+        case Left:
+            toMove.x = (snake->body[0].x - 1 + WIDTH) % WIDTH;
+            break;
+
+        case Right:
+            toMove.x = (snake->body[0].x + 1) % WIDTH;
+            break;
+
+        case Down:
+            toMove.y = (snake->body[0].y + 1 ) % HEIGHT;
+            break;
+
+        default:
+            break;
+    };
+
+    // check for tail collison
+    for(int i = 1; i < snake->size; ++i)
+    { 
+        if(toMove.x == snake->body[i].x && toMove.y == snake->body[i].y)
+        { 
+            snake->isAlive = false;
+            return snake;
+        }
+    }
+
+    if(toMove.x == fruit->x && toMove.y == fruit->y)
+    {
+        bool onSnake = false;
+        do 
+        { 
+            ++snake->size;
+            onSnake = false;
+            fruit->x = rand() % WIDTH;
+            fruit->y = rand() % HEIGHT;
+
+            for(int i = 0; i < (snake->size); ++i)
+            { 
+                if(fruit->x == snake->body[i].x && fruit->y == snake->body[i].y)
+                {
+                    onSnake = true;
+                    break;
+                }
+            }
+
+        } while(onSnake);
+    }
+
+    for(int i = (snake->size-1); i > 0; --i)
+    { 
+        snake->body[i] = snake->body[i-1];
+    }
+
+    snake->body[0] = toMove;
+    return snake;
+    /*
+       for(int i = (snake->size-1); i > 0; --i)
+       { 
+       snake->body[i].x = snake->body[i-1].x;
+       snake->body[i].y = snake->body[i-1].y;
+       }
+       switch(checkColison(snake, fruit)) 
+       { 
+       case WithBody:
+       snake->isAlive = false;
+       break;
+
+       case WithFruit:
+       int i = 0;
+       ++snake->size;
+
+       bool onSnake = false;
+       do 
+       { 
+       onSnake = false;
+       fruit->x = rand() % WIDTH;
+       fruit->y = rand() % HEIGHT;
+
+       for(int i = 0; i < snake->size; ++i)
+       { 
+       if(fruit->x == snake->body[i].x && fruit->y == snake->body[i].y)
+       {
+       onSnake = true;
+       break;
+       }
+       }
+
+       } while(onSnake);
+
+       break;
+       default:
+       break;
+
+       };
+       */
+}
+
+void updateGrid(int* grid, Sstatus* snake, Point* fruit)
+{ 
+    memset(grid, 0, sizeof(int) * HEIGHT * WIDTH);
+    grid[fruit->y * WIDTH + fruit->x] = 3;
+    for(int i = 0; i < snake->size; ++i)
+    {
+        grid[snake->body[i].y * WIDTH + snake->body[i].x] = 1;
+    }
+}
+
+Direction getDirection() 
+{ 
+    char c;
+    read(STDIN_FILENO, &c, sizeof(c));
+    switch(c)
+    { 
+        case 'k': 
+            return Up;
+        case 'h': 
+            return Left;
+        case 'j': 
+            return Down;
+        case 'l': 
+            return Right;
+        default: 
+            return None;
+    }
+    return None;
+}
+
+void setTerminalMode(bool enable)
+{ 
+    static struct termios oldt, newt;
+    if(enable) 
+    { 
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    }
+    else 
+    { 
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    }
+}
+
+Direction autoPilot(Sstatus* snake, Point* fruit)
+{ 
+    Direction bestDirection = snake->d;
+    int minDistance = 1000;
+    Direction choice[] = { Up, Down, Left, Right };
+    Point head = snake->body[0];
+
+    for(int i = 0; i < 4; ++i)
+    { 
+        Point next = head;
+        Direction currentDirection = choice[i];
+        if(currentDirection == Up) next.y = (next.y - 1 + HEIGHT) % HEIGHT;
+        if(currentDirection == Down) next.y = (next.y + 1) % HEIGHT;
+        if(currentDirection == Right) next.x = (next.x + 1) % WIDTH; 
+        if(currentDirection == Left) next.x = (next.x - 1 + WIDTH) % WIDTH; 
+
+        if(snake->d == Up && currentDirection == Down) continue;
+        if (snake->d == Down && currentDirection == Up) continue;
+        if (snake->d == Left && currentDirection == Right) continue;
+        if (snake->d == Right && currentDirection == Left) continue;
+
+        int collison = false;
+        for(int i = 0; i < snake->size; ++i)
+        { 
+            if(snake->body[i].x == next.x && snake->body[i].y == next.y)
+            { 
+                collison = true;
+                break;
+            }
+        }
+
+        if(collison) continue;
+
+        int dx = abs(next.x - fruit->x);
+        int dy = abs(next.y - fruit->y);
+
+        if(dx > WIDTH / 2) dx = WIDTH - dx;
+        if(dy > HEIGHT / 2) dy = HEIGHT - dy;
+
+        int distance = dx + dy;
+        if(distance < minDistance)
+        { 
+            minDistance = distance;
+            bestDirection = currentDirection;
+        }
+    }
+    return bestDirection;
+}
+
+char* directionToString(Direction d)
+{ 
+    switch(d)
+    { 
+        case Up:
+            return "Up";
+        case Down:
+            return "Down";
+        case Left:
+            return "Left";
+        case Right:
+            return "Right";
+        default:
+            return "None";
+    }
+}
+
+int main() 
+{ 
+
+    srand(time(0));
+    int* grid = calloc(HEIGHT*WIDTH, sizeof(int));
+
+    Point fruit = { rand() % WIDTH, rand() % HEIGHT };
+
+    Sstatus snake = { 
+        .body[0] = { WIDTH/2, HEIGHT/2},
+        .size = 1,
+        .d = None,
+        .isAlive = true,
+    };
+
+    int flags = fcntl(STDIN_FILENO, F_GETFL);
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+    setTerminalMode(true);
+
+    while(snake.isAlive)
+    { 
+        printf("\033[2J");
+        printf("Snake x:%d, y:%d\nFruit x:%d, y:%d\nScore:%d\nHeading:%s\n"
+                ,snake.body[0].x, snake.body[0].y, fruit.x, fruit.y, snake.size, directionToString(snake.d));
+        printf("\033[H");
+        snake.d = autoPilot(&snake, &fruit); 
+        /*
+           if(newDirection != None)
+           { 
+           if(snake.d == None)
+           { 
+           snake.d = newDirection;
+           }
+           if((snake.d == Up && newDirection != Down) 
+           || (snake.d == Down && newDirection != Up)
+           || (snake.d == Left && newDirection != Right)
+           || (snake.d == Right && newDirection != Left)
+           )
+           { 
+           snake.d = newDirection;
+           }
+           }
+           */
+        updateSnake(&snake, &fruit);
+        updateGrid(grid, &snake, &fruit);
+        printGrid(grid);
+        usleep(SPEED * 1000);
+    }
+
+    printf("Game over!\n");
+    // fix the terminal and free the grid array
+    fcntl(STDIN_FILENO, F_SETFL, flags & ~O_NONBLOCK);
+    setTerminalMode(false);
+    free(grid);
+    return 0;
+}
