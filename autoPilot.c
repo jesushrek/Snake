@@ -117,9 +117,9 @@ Sstatus* updateSnake(Sstatus* snake, Point* fruit)
     if(toMove.x == fruit->x && toMove.y == fruit->y)
     {
         bool onSnake = false;
+            ++snake->size;
         do 
         { 
-            ++snake->size;
             onSnake = false;
             fruit->x = rand() % WIDTH;
             fruit->y = rand() % HEIGHT;
