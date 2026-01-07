@@ -117,7 +117,8 @@ Sstatus* updateSnake(Sstatus* snake, Point* fruit)
     if(toMove.x == fruit->x && toMove.y == fruit->y)
     {
         bool onSnake = false;
-            ++snake->size;
+
+        //++snake->size;
         do 
         { 
             onSnake = false;
@@ -307,7 +308,7 @@ int main()
 
     Sstatus snake = { 
         .body[0] = { WIDTH/2, HEIGHT/2},
-        .size = 1,
+        .size = 6,
         .d = None,
         .isAlive = true,
     };

@@ -116,9 +116,9 @@ Sstatus* updateSnake(Sstatus* snake, Point* fruit)
     if(toMove.x == fruit->x && toMove.y == fruit->y)
     {
         bool onSnake = false;
+        ++snake->size;
         do 
         { 
-        ++snake->size;
             onSnake = false;
             fruit->x = rand() % WIDTH;
             fruit->y = rand() % HEIGHT;
@@ -273,7 +273,7 @@ int main()
         updateSnake(&snake, &fruit);
         updateGrid(grid, &snake, &fruit);
         printGrid(grid);
-        usleep(150 * 1000);
+        usleep(70 * 1000);
     }
 
     printf("Game over!\n");
